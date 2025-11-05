@@ -52,6 +52,7 @@ function draw() {
 
 // --- 加速度データを受け取る ---
 const socket = io.connect(window.location.origin);
+socket.emit('join', 'game'); 
 socket.on("sensor", data => {
   if (!gameStarted) {
     gameStarted = true;

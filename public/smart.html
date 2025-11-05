@@ -1,41 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>スマホ操作画面</title>
-<script src="/socket.io/socket.io.js"></script>
+  <meta charset="utf-8">
+  <title>スマホセンサー送信</title>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-<h2>スマホを傾けて操作するよ！</h2>
-<button id="startBtn">センサーを有効にする</button>
+  <h2>スマホ傾き送信中📱</h2>
+  <button id="startBtn">センサーを有効にする</button>
 
-<script>
-const socket = io();
+  <script>
+  const socket = io.connect(window.location.origin);
+  socket.emit('join', 'game');
 
-document.getElementById("startBtn").addEventListener("click", () => {
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS用：許可をリクエスト
-    DeviceOrientationEvent.requestPermission()
-      .then(permissionState => {
-        if (permissionState === 'granted') {
-          startSending();
-        } else {
-          alert('センサーの許可が必要だよ📱');
-        }
-      })
-      .catch(console.error);
-  } else {
-    // Android用：そのまま開始
-    startSending();
-  }
-});
-
-function startSending() {
-  window.addEventListener("deviceorientation", (e) => {
-    socket.emit("sensor", { g: e.gamma, b: e.beta });
+  document.getElementById("startBtn").addEventListener("click", () => {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iPhone系（Safari）向け：許可ボタンが必要
+      DeviceOrientationEvent.requestPermission()
+        .then(state => {
+          if (state === 'granted') startSending();
+          else alert('許可されてないよ💦');
+        })
+        .catch(console.error);
+    } else {
+      // Androidなど：そのまま開始
+      startSending();
+    }
   });
-  document.getElementById("startBtn").style.display = "none";
-}
-</script>
+
+  function startSending() {
+    window.addEventListener('deviceorientation', (e) => {
+      socket.emit('sensor', { g: e.gamma, b: e.beta });
+    });
+    document.getElementById("startBtn").style.display = "none";
+  }
+  </script>
 </body>
 </html>
