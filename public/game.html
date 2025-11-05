@@ -2,16 +2,36 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Ball Game</title>
+  <title>Mini Ball Game 🎮</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(180deg, #f8f9fa 0%, #c9e8ff 100%);
+      font-family: 'ヒラギノ丸ゴ ProN', sans-serif;
+    }
+    #info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 8px 12px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+  </style>
 </head>
 <body>
+<div id="info">🎮 スマホを傾けてターゲットに当てよう！</div>
+
 <script>
 let ballX, ballY;
 let targetX, targetY;
 let startTime, endTime;
 let gameStarted = false;
+let score = 0;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -21,61 +41,88 @@ function setup() {
 }
 
 function resetGame() {
-  // p5.js の random() を setup() の中で呼ぶ！
   ballX = width / 2;
   ballY = height / 2;
-  targetX = random(50, width - 50);
-  targetY = random(50, height - 50);
+  targetX = random(80, width - 80);
+  targetY = random(120, height - 120);
   gameStarted = false;
 }
 
 function draw() {
   background(240);
 
+  // 外枠
+  stroke(180);
+  strokeWeight(3);
+  noFill();
+  rect(10, 10, width - 20, height - 20, 15);
+
   // ターゲット
-  fill(255, 100, 100);
-  ellipse(targetX, targetY, 40, 40);
+  noStroke();
+  fill(255, 120, 120);
+  ellipse(targetX, targetY, 50, 50);
+  fill(255, 255, 255, 100);
+  ellipse(targetX, targetY, 30, 30);
 
   // ボール
   fill(100, 150, 255);
   ellipse(ballX, ballY, 50, 50);
 
+  // スコア・タイム表示
+  fill(50);
+  textAlign(LEFT, TOP);
+  text("🏆 SCORE: " + score, 25, 25);
+
+  textAlign(RIGHT, TOP);
   if (gameStarted) {
     const now = millis();
-    fill(0);
-    text("Time: " + ((now - startTime) / 1000).toFixed(2) + " s", width / 2, 40);
+    text("⏱ " + ((now - startTime) / 1000).toFixed(2) + " 秒", width - 25, 25);
   } else {
-    fill(0);
+    text("Ready?", width - 25, 25);
+  }
+
+  // 中央メッセージ
+  if (!gameStarted) {
+    fill(70);
+    textAlign(CENTER, CENTER);
     text("スマホを傾けてスタート！", width / 2, height / 2);
   }
 }
 
-// --- 加速度データを受け取る ---
+// --- ソケット通信設定 ---
 const socket = io.connect(window.location.origin);
-socket.emit('join', 'game'); 
-socket.on("sensor", data => {
+socket.emit('join', 'game'); // ゲームルーム参加
+
+socket.on('sensor', data => {
   if (!gameStarted) {
     gameStarted = true;
-    startTime = millis(); // ← setupの後で宣言されるからOK！
+    startTime = millis();
   }
 
-  // スマホの傾きデータを使ってボールを動かす
-  ballX += data.g / 2;  // gamma（左右）
-  ballY += data.b / 2;  // beta（前後）
+  // 傾きに合わせてボールを動かす
+  ballX += data.g / 2; // gamma
+  ballY += data.b / 2; // beta
 
-  // 壁の外に出ないように
-  ballX = constrain(ballX, 25, width - 25);
-  ballY = constrain(ballY, 25, height - 25);
+  // 画面の端で止まる
+  ballX = constrain(ballX, 35, width - 35);
+  ballY = constrain(ballY, 35, height - 35);
 
-  // ターゲットに当たったら！
+  // ターゲットに当たったら
   const d = dist(ballX, ballY, targetX, targetY);
   if (d < 40 && gameStarted) {
     gameStarted = false;
     endTime = millis();
-    alert("クリア！タイム: " + ((endTime - startTime) / 1000).toFixed(2) + " 秒✨");
-    resetGame();
+    score++;
+    setTimeout(() => {
+      alert("🎉クリア！タイム: " + ((endTime - startTime) / 1000).toFixed(2) + " 秒✨");
+      resetGame();
+    }, 100);
   }
 });
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
 </script>
 </body>
 </html>
