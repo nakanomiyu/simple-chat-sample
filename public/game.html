@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <script>
+      let socket = io.connect();
+      let g = 0, b = 0;
+      let x = 0, y = 0;
+      let speed = 0.1;
+      let r = 40;
+
+      // ターゲット座標
+      let targetX = random(-300, 300);
+      let targetY = random(-300, 300);
+      let startTime, endTime;
+      let gameStarted = false;
+
+      socket.on("sensor", (data) => {
+        g = parseFloat(data.g);
+        b = parseFloat(data.b);
+      });
+
+      function setup() {
+        createCanvas(800, 800, WEBGL);
+        startTime = millis();
+      }
+
+      function draw() {
+        background(0);
+        orbitControl();
+
+        // ボールの移動
+        x += speed * g;
+        y += speed * b;
+
+        push();
+        fill(200);
+        translate(x, y, 0);
+        sphere(r);
+        pop();
+
+        // ターゲット描画
+        push();
+        fill(255, 0, 0);
+        translate(targetX, targetY, 0);
+        sphere(20);
+        pop();
+
+        // 当たり判定
+        if (dist(x, y, targetX, targetY) < r + 20 && !gameStarted) {
+          endTime = millis();
+          alert(`当たった！タイム：${(endTime - startTime) / 1000}秒`);
+          gameStarted = true;
+        }
+      }
+    </script>
+  </body>
+</html>
