@@ -1,15 +1,16 @@
 <!doctype html>
+<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mini Ball Game 🎮</title>
+  <title>Tilt Ball Challenge 🎮</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background: linear-gradient(180deg, #f8f9fa 0%, #c9e8ff 100%);
+      background: #f0f8ff;
       font-family: 'ヒラギノ丸ゴ ProN', sans-serif;
     }
     #info {
@@ -31,8 +32,24 @@ let ballX, ballY;
 let targetX, targetY;
 let startTime, endTime;
 let gameStarted = false;
-let cleared = false;   // ← クリア済みフラグ追加！
+let cleared = false;
 let score = 0;
+let fadeAlpha = 0;
+
+// カウントダウン関連
+let countdown = 3;
+let countdownActive = false;
+
+// --- ステージ背景カラー ---
+function getStageColor() {
+  const colors = [
+    [200, 230, 255],
+    [220, 255, 220],
+    [255, 230, 240],
+    [250, 250, 200]
+  ];
+  return colors[score % colors.length];
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -47,11 +64,28 @@ function resetGame() {
   targetX = random(80, width - 80);
   targetY = random(120, height - 120);
   gameStarted = false;
-  cleared = false; // ← 再スタート時に解除
+  cleared = false;
+  countdownActive = false;
+  fadeAlpha = 0;
+}
+
+function startCountdown() {
+  countdown = 3;
+  countdownActive = true;
+  let timer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(timer);
+      countdownActive = false;
+      gameStarted = true;
+      startTime = millis();
+    }
+  }, 1000);
 }
 
 function draw() {
-  background(240);
+  const c = getStageColor();
+  background(c[0], c[1], c[2]);
 
   // 外枠
   stroke(180);
@@ -83,27 +117,42 @@ function draw() {
     text("Ready?", width - 25, 25);
   }
 
-  // 中央メッセージ
-  if (!gameStarted) {
+  // カウントダウン表示
+  if (countdownActive) {
+    fill(255, 0, 0);
+    textSize(60);
+    textAlign(CENTER, CENTER);
+    text(countdown > 0 ? countdown : "GO!", width / 2, height / 2);
+  }
+
+  // ゲーム開始前の案内
+  if (!gameStarted && !countdownActive) {
     fill(70);
+    textSize(24);
     textAlign(CENTER, CENTER);
     text("スマホを傾けてスタート！", width / 2, height / 2);
+  }
+
+  // フェード演出
+  if (fadeAlpha > 0) {
+    fill(255, fadeAlpha);
+    rect(0, 0, width, height);
+    fadeAlpha -= 10;
   }
 }
 
 // --- ソケット通信設定 ---
 const socket = io.connect(window.location.origin);
-socket.emit('join', 'game'); // ゲームルーム参加
+socket.emit('join', 'game');
 
 socket.on('sensor', data => {
-  // スタートタイムを確実に最初だけ設定
-  if (!gameStarted) {
-    gameStarted = true;
-    startTime = millis();
-    cleared = false;
+  // カウントダウンスタート（1回だけ）
+  if (!gameStarted && !countdownActive && !cleared) {
+    startCountdown();
+    return;
   }
 
-  if (cleared) return; // ← クリア後は処理ストップ！
+  if (cleared || countdownActive) return;
 
   // 傾きに合わせてボールを動かす
   ballX += data.g / 2; // gamma
@@ -116,13 +165,17 @@ socket.on('sensor', data => {
   // ターゲットに当たったら（1回だけ処理）
   const d = dist(ballX, ballY, targetX, targetY);
   if (d < 40 && !cleared) {
-    cleared = true; // ← 二重処理防止！
+    cleared = true;
     endTime = millis();
     score++;
+    fadeAlpha = 255;
 
     const clearTime = ((endTime - startTime) / 1000).toFixed(2);
-    alert(`🎉クリア！タイム: ${clearTime} 秒✨`);
-    resetGame();
+
+    setTimeout(() => {
+      alert(`🎉CLEAR!! タイム: ${clearTime} 秒✨`);
+      resetGame();
+    }, 800);
   }
 });
 
